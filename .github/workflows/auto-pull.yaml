@@ -2,6 +2,8 @@ name: Auto Approve and Merge for Test to Master
 
 on:
   pull_request:
+    branches:
+      - master
     types: [opened, reopened, synchronize, ready_for_review]
 
 jobs:
