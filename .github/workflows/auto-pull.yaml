@@ -1,33 +1,35 @@
-name: Auto Approve and Merge for Test to Master
+name: Auto Merge Test to Master
 
 on:
-  pull_request:
+  push:
     branches:
-      - master
-    types: [opened, reopened, synchronize, ready_for_review]
+      - test
 
 jobs:
-  auto-approve-and-merge:
+  auto-merge:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write  # Ensures the workflow can approve and merge PRs
 
     steps:
-      # Step 1: Checkout the repository
+      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Check if PR is from `test` to `master`
-      - name: Ensure PR is from `test` to `master`
-        if: github.event.pull_request.base.ref == 'master' && github.event.pull_request.head.ref == 'test'
-        run: echo "PR is from test to master branch."
+      # Setup GitHub CLI
+      - name: Set up GitHub CLI
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      # Step 3: Automatically approve the pull request
-      - name: Auto-approve pull request
-        if: github.event.pull_request.base.ref == 'master' && github.event.pull_request.head.ref == 'test'
-        uses: hmarr/auto-approve-action@v3
+      # Create a Pull Request
+      - name: Create a pull request from test to master
+        run: |
+          gh pr create --base master --head test --title "Auto-merge: test to master" --body "This PR merges the latest changes from test to master." || echo "PR already exists."
 
-      # Step 4: Automatically merge the pull request
-      - name: Auto-merge pull request
-        if: github.event.pull_request.base.ref == 'master' && github.event.pull_request.head.ref == 'test'
-        uses: pascalgn/automerge-action@v0.15.0
+      # Merge the Pull Request
+      - name: Merge the pull request
+        run: |
+          PR_ID=$(gh pr list --head test --base master --state open --json number --jq '.[0].number')
+          if [ ! -z "$PR_ID" ]; then
+            gh pr merge $PR_ID --merge --admin --delete-branch
+          else
+            echo "No open PR to merge."
+          fi
